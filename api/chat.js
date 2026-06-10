@@ -32,6 +32,28 @@ const OUTPUT_SCHEMA = {
 const MODEL = "claude-haiku-4-5";
 const FORMAT = { type: "json_schema", schema: OUTPUT_SCHEMA };
 
+// ── 토큰 어뷰징 방어(상태 불필요) ───────────────────────────────
+// 요청 1건의 비용 상한을 결정적으로 고정한다. 외부 저장소 없이 함수 안에서 끝낸다.
+const MAX_TURNS = 12;            // messages 배열 길이 상한
+const MAX_TEXT = 1000;           // 사용자 텍스트 길이(문자) 상한
+const MAX_IMAGE_BYTES = 1_500_000; // 이미지 base64 디코드 기준 ≈1.1MB 원본
+
+// Origin/Referer의 host가 요청 host와 같은지(=내 페이지에서 온 요청인지) 확인한다.
+// 도메인을 하드코딩하지 않아 로컬(vercel dev)·배포 모두에서 동작.
+// 주의: Origin은 브라우저만 자동으로 붙이므로 단순 스크립트/크로스오리진을 막는다
+//       (헤더를 위조하는 결연한 공격자까진 못 막음 — 입력 캡이 그 경우의 천장).
+function isSameOrigin(req) {
+  const host = req.headers.host;
+  if (!host) return false;
+  const ref = req.headers.origin || req.headers.referer;
+  if (!ref) return false; // 정상 브라우저 POST는 Origin을 항상 포함
+  try {
+    return new URL(ref).host === host;
+  } catch {
+    return false;
+  }
+}
+
 // ── 2단계 체인 프롬프트 ──────────────────────────────────────────
 // 팀장(분석·과업)이 초안을 만들고, 상담가(메시지·안전)가 다듬어 최종본을 낸다.
 
@@ -124,10 +146,31 @@ export default async function handler(req, res) {
     return;
   }
 
+  // [방어] 내 페이지에서 온 요청만 허용 — 봇의 직접 API 호출 차단.
+  if (!isSameOrigin(req)) {
+    res.status(403).json({ error: "허용되지 않은 요청이에요." });
+    return;
+  }
+
   try {
     const { messages, image } = req.body ?? {};
     if (!Array.isArray(messages) || messages.length === 0) {
       res.status(400).json({ error: "messages 배열이 필요합니다." });
+      return;
+    }
+
+    // [방어] 입력 크기 캡 — 요청당 토큰 비용의 천장을 고정한다.
+    if (messages.length > MAX_TURNS) {
+      res.status(400).json({ error: "대화가 너무 길어요. 새로 시작해줄래?" });
+      return;
+    }
+    const lastMsg = messages[messages.length - 1];
+    if (typeof lastMsg?.content === "string" && lastMsg.content.length > MAX_TEXT) {
+      res.status(400).json({ error: "메시지가 너무 길어요. 조금 줄여줄래?" });
+      return;
+    }
+    if (image?.data && (image.data.length * 3) / 4 > MAX_IMAGE_BYTES) {
+      res.status(413).json({ error: "사진이 너무 커요. 다시 찍어줄래?" });
       return;
     }
 
