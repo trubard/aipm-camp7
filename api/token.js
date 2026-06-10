@@ -8,12 +8,14 @@ import { createHmac } from "crypto";
 const TTL_MS = 30 * 60 * 1000; // 30분
 
 export default function handler(req, res) {
+  // DSN은 공개값이라 프론트에 내려도 안전 — 브라우저 Sentry 초기화에 사용.
+  const sentryDsn = process.env.SENTRY_DSN || "";
   const secret = process.env.APP_SECRET;
   if (!secret) {
-    res.status(200).json({ token: "" });
+    res.status(200).json({ token: "", sentryDsn });
     return;
   }
   const exp = Date.now() + TTL_MS;
   const sig = createHmac("sha256", secret).update(String(exp)).digest("hex");
-  res.status(200).json({ token: `${exp}.${sig}` });
+  res.status(200).json({ token: `${exp}.${sig}`, sentryDsn });
 }

@@ -6,6 +6,7 @@
     "cli": "node --env-file=.env index.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.70.0"
+    "@anthropic-ai/sdk": "^0.70.0",
+    "@sentry/node": "^8.0.0"
   }
 }

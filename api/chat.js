@@ -1,5 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createHmac, timingSafeEqual } from "crypto";
+import * as Sentry from "@sentry/node";
+
+// SENTRY_DSN 이 있을 때만 초기화(없으면 capture/flush 가 안전한 no-op).
+if (process.env.SENTRY_DSN) {
+  Sentry.init({ dsn: process.env.SENTRY_DSN, tracesSampleRate: 0 });
+}
 
 // API 키는 환경변수 ANTHROPIC_API_KEY 에서 자동으로 읽어옵니다.
 // (vercel dev 사용 시 .env 를 자동으로 읽어 들입니다)
@@ -240,6 +246,8 @@ export default async function handler(req, res) {
     res.status(200).json(result);
   } catch (err) {
     console.error(err);
+    Sentry.captureException(err);
+    await Sentry.flush(2000); // 서버리스가 얼기 전에 전송 보장
     res.status(500).json({ error: "연결이 늦어지고 있는것 같아요. 나중에 다시 보내주세요." });
   }
 }

@@ -760,12 +760,28 @@
         preview.hidden = true;
       }
 
+      // Sentry 브라우저 로더 주입(DSN 있을 때만, 1회). 로더가 자동 init·에러 수집.
+      let sentryLoaded = false;
+      function initSentry(dsn) {
+        if (sentryLoaded || !dsn) return;
+        try {
+          const key = new URL(dsn).username; // DSN의 public key
+          if (!key) return;
+          sentryLoaded = true;
+          const s = document.createElement("script");
+          s.src = "https://js.sentry-cdn.com/" + key + ".min.js";
+          s.crossOrigin = "anonymous";
+          document.head.appendChild(s);
+        } catch {}
+      }
+
       // 서명 토큰 발급받기(봇 마찰). APP_SECRET 미설정이면 빈 토큰이 와도 정상 동작.
       async function fetchToken() {
         try {
           const r = await fetch("/api/token");
           const d = await r.json();
           appToken = d.token || "";
+          initSentry(d.sentryDsn); // DSN 내려오면 Sentry 켜짐
         } catch {
           appToken = "";
         }
@@ -886,5 +902,25 @@
         }
       }
     </script>
+
+    <!-- Vercel Web Analytics (대시보드에서 Analytics 활성화 필요) -->
+    <script>
+      window.va =
+        window.va ||
+        function () {
+          (window.vaq = window.vaq || []).push(arguments);
+        };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>
+
+    <!-- Vercel Speed Insights (대시보드에서 Speed Insights 활성화 필요) -->
+    <script>
+      window.si =
+        window.si ||
+        function () {
+          (window.siq = window.siq || []).push(arguments);
+        };
+    </script>
+    <script defer src="/_vercel/speed-insights/script.js"></script>
   </body>
 </html>
