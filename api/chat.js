@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { createHmac, timingSafeEqual } from "crypto";
 
 // API 키는 환경변수 ANTHROPIC_API_KEY 에서 자동으로 읽어옵니다.
 // (vercel dev 사용 시 .env 를 자동으로 읽어 들입니다)
@@ -52,6 +53,22 @@ function isSameOrigin(req) {
   } catch {
     return false;
   }
+}
+
+// /api/token 이 발급한 HMAC 서명 토큰을 검증한다(서명+만료만, 저장소 불필요).
+// APP_SECRET 미설정이면 토큰 검사를 건너뛴다(Origin·입력 캡 방어는 그대로 유지).
+function isValidToken(req) {
+  const secret = process.env.APP_SECRET;
+  if (!secret) return true;
+  const token = req.headers["x-app-token"];
+  if (typeof token !== "string") return false;
+  const [expStr, sig] = token.split(".");
+  const exp = Number(expStr);
+  if (!exp || !sig || Date.now() > exp) return false;
+  const expected = createHmac("sha256", secret).update(expStr).digest("hex");
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 // ── 2단계 체인 프롬프트 ──────────────────────────────────────────
@@ -149,6 +166,12 @@ export default async function handler(req, res) {
   // [방어] 내 페이지에서 온 요청만 허용 — 봇의 직접 API 호출 차단.
   if (!isSameOrigin(req)) {
     res.status(403).json({ error: "허용되지 않은 요청이에요." });
+    return;
+  }
+
+  // [방어] HMAC 서명 토큰 검증 — 페이지에서 발급받지 않은 요청 차단.
+  if (!isValidToken(req)) {
+    res.status(403).json({ error: "세션이 만료됐어요. 새로고침해줄래?" });
     return;
   }
 

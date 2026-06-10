@@ -446,6 +446,7 @@
       let stagedImage = null; // { data, mediaType, dataUrl }
       let lastSentImage = null; // 마지막으로 서버에 보낸 사진 { data, mediaType } — '여기서 더' 재사용
       let sending = false; // 응답 대기 중 중복 요청 방지
+      let appToken = ""; // /api/token 이 발급한 HMAC 서명 토큰(봇 마찰)
       let doneCount = 0; // 이번 세션에 완료한 일 수(저장하지 않음)
       let currentTask = null; // 지금 검증 중인 과업 {minutes, task} — 완료 서머리에 사용
       let lastRating = null; // 직전 난이도 평가('할 만했어' 등) — 완료 서머리에 사용
@@ -760,6 +761,18 @@
         preview.hidden = true;
       }
 
+      // 서명 토큰 발급받기(봇 마찰). APP_SECRET 미설정이면 빈 토큰이 와도 정상 동작.
+      async function fetchToken() {
+        try {
+          const r = await fetch("/api/token");
+          const d = await r.json();
+          appToken = d.token || "";
+        } catch {
+          appToken = "";
+        }
+      }
+      fetchToken();
+
       // 첫 인사 (과업 탐색 요청) — 문장마다 약간의 간격을 두고 순차로 띄운다.
       GREETING.forEach((line, i) => {
         setTimeout(() => addBubble("bot", line), i * 1200);
@@ -834,11 +847,22 @@
         const typing = showTyping();
 
         try {
-          const res = await fetch("/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ messages: history, image }),
-          });
+          const payload = JSON.stringify({ messages: history, image });
+          const doPost = () =>
+            fetch("/api/chat", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-app-token": appToken,
+              },
+              body: payload,
+            });
+          let res = await doPost();
+          if (res.status === 403) {
+            // 토큰 만료 가능성 — 한 번 갱신 후 재시도
+            await fetchToken();
+            res = await doPost();
+          }
           typing.remove();
 
           if (!res.ok) {
