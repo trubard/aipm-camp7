@@ -1,0 +1,11 @@
+{
+  "name": "aipm-camp7",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "cli": "node --env-file=.env index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.70.0"
+  }
+}

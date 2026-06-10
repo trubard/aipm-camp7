@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>오늘의 일상 연구팀 · AI 팀장</title>
+    <style>
+      :root {
+        --bg: #f6faf7;
+        --panel: #ffffff;
+        --ink: #2f3a33;
+        --muted: #7e8f84;
+        --accent: #7cbf8e; /* 메인 컬러 */
+        --accent-soft: #e3f2ea; /* 메인 연한 톤 */
+        --action: #4fbfa5; /* 액션 버튼 */
+        --action-dark: #3fa890; /* 액션 hover */
+        --reward: #8bb6ff; /* 스트릭 테두리 */
+        --reward-soft: #eef5ff; /* 스트릭 배경 */
+        --reward-ink: #4e7fe0; /* 스트릭 숫자 */
+        --bot-bubble: #ffffff;
+        --user-bubble: #d8f0e6;
+        --task-bg: #edf7f1;
+        --task-border: #bfe0cc;
+        --border: #dde9e2;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        font-family: "Apple SD Gothic Neo", "Pretendard", "Segoe UI", system-ui,
+          sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 16px;
+      }
+
+      .app {
+        width: 100%;
+        max-width: 640px;
+        height: min(860px, 100%);
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        box-shadow: 0 18px 50px rgba(70, 55, 40, 0.12);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      header {
+        padding: 18px 24px;
+        border-bottom: 1px solid var(--border);
+        background: var(--accent-soft);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+      header h1 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+      }
+      header p {
+        margin: 4px 0 0;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .streak {
+        flex-shrink: 0;
+        text-align: center;
+        background: var(--reward-soft);
+        border: 1px solid var(--reward);
+        border-radius: 12px;
+        padding: 6px 12px;
+        line-height: 1.2;
+      }
+      .streak .num {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--reward-ink);
+      }
+      .streak .label {
+        font-size: 11px;
+        color: #60789f;
+      }
+
+      .messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .msg {
+        max-width: 80%;
+        padding: 12px 16px;
+        border-radius: 16px;
+        line-height: 1.6;
+        font-size: 15px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .msg.bot {
+        align-self: flex-start;
+        background: var(--bot-bubble);
+        border: 1px solid var(--border);
+        border-bottom-left-radius: 4px;
+      }
+      .msg.bot.safety {
+        background: #eaf7f1;
+        border-color: var(--action);
+      }
+      .msg.user {
+        align-self: flex-end;
+        background: var(--user-bubble);
+        border-bottom-right-radius: 4px;
+      }
+      .msg.error {
+        align-self: center;
+        background: #fbe9e7;
+        color: #b3261e;
+        font-size: 13px;
+        border-radius: 10px;
+      }
+      .msg-img {
+        display: block;
+        max-width: 220px;
+        border-radius: 10px;
+      }
+
+      /* 과업 카드 */
+      .task-card {
+        align-self: flex-start;
+        width: fit-content;
+        max-width: 100%;
+        background: var(--task-bg);
+        border: 1px solid var(--task-border);
+        border-radius: 16px;
+        border-bottom-left-radius: 4px;
+        padding: 14px 16px;
+      }
+      .task-card .task-label {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--accent);
+        margin-bottom: 6px;
+      }
+      .task-card .task-text {
+        font-size: 15px;
+        line-height: 1.5;
+        margin-bottom: 12px;
+      }
+      .task-card .task-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .task-card .task-actions button {
+        flex: 1;
+        border: 1px solid var(--task-border);
+        background: #fff;
+        color: var(--ink);
+        padding: 9px 10px;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: filter 0.15s, opacity 0.15s;
+      }
+      .task-card .task-actions button.done {
+        background: var(--action);
+        color: #fff;
+        border-color: var(--action);
+      }
+      .task-card .task-actions button:hover:not(:disabled) {
+        filter: brightness(0.96);
+      }
+      .task-card .task-actions button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      /* 행 전체가 선택지인 과업 후보 */
+      .task-card .choice-row {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        margin-top: 8px;
+        padding: 12px 14px;
+        background: #fff;
+        border: 1px solid var(--task-border);
+        border-radius: 10px;
+        font: inherit;
+        font-size: 15px;
+        line-height: 1.5;
+        color: var(--ink);
+        text-align: left;
+        cursor: pointer;
+        transition: filter 0.15s, border-color 0.15s, opacity 0.15s;
+      }
+      .task-card .choice-row::after {
+        content: "›";
+        margin-left: auto;
+        padding-left: 10px;
+        color: var(--muted);
+        font-size: 18px;
+      }
+      .task-card .choice-row:hover:not(:disabled) {
+        border-color: var(--action);
+        filter: brightness(0.98);
+      }
+      .task-card .choice-row:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      .help {
+        align-self: flex-start;
+        max-width: 80%;
+        font-size: 13px;
+        color: var(--muted);
+        background: #fff;
+        border: 1px dashed var(--action);
+        border-radius: 12px;
+        padding: 10px 14px;
+      }
+
+      .typing {
+        align-self: flex-start;
+        display: inline-flex;
+        gap: 5px;
+        padding: 14px 16px;
+        background: var(--bot-bubble);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        border-bottom-left-radius: 4px;
+      }
+      .typing span {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--muted);
+        animation: blink 1.2s infinite ease-in-out;
+      }
+      .typing span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .typing span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+      @keyframes blink {
+        0%,
+        80%,
+        100% {
+          opacity: 0.3;
+          transform: translateY(0);
+        }
+        40% {
+          opacity: 1;
+          transform: translateY(-3px);
+        }
+      }
+
+      /* 첨부 사진 미리보기 */
+      .preview {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 16px 0;
+      }
+      /* hidden 속성이 클래스 display 규칙에 밀리지 않도록 명시 */
+      .preview[hidden] {
+        display: none;
+      }
+      .preview img {
+        width: 56px;
+        height: 56px;
+        object-fit: cover;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+      }
+      .preview .name {
+        font-size: 13px;
+        color: var(--muted);
+        flex: 1;
+      }
+      .preview button {
+        border: none;
+        background: #eee;
+        color: #555;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 13px;
+      }
+
+      form {
+        display: flex;
+        gap: 8px;
+        align-items: flex-end;
+        padding: 12px 16px 16px;
+        border-top: 1px solid var(--border);
+        background: var(--panel);
+      }
+      .photo-btn {
+        flex-shrink: 0;
+        width: 46px;
+        height: 46px;
+        border: 1px solid var(--task-border);
+        border-radius: 12px;
+        background: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .photo-btn:hover {
+        background: var(--accent-soft);
+      }
+      textarea {
+        flex: 1;
+        resize: none;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 14px;
+        font-family: inherit;
+        font-size: 15px;
+        line-height: 1.5;
+        max-height: 140px;
+        outline: none;
+        background: #fff;
+        color: var(--ink);
+      }
+      textarea:focus {
+        border-color: var(--accent);
+      }
+      button.send {
+        flex-shrink: 0;
+        height: 46px;
+        border: none;
+        background: var(--action);
+        color: #fff;
+        padding: 0 20px;
+        border-radius: 12px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      button.send:hover:not(:disabled) {
+        background: var(--action-dark);
+      }
+      button.send:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .char-counter {
+        text-align: right;
+        font-size: 12px;
+        color: var(--muted);
+        padding: 8px 16px 0;
+      }
+      .char-counter.near {
+        color: var(--action);
+        font-weight: 600;
+      }
+      .photo-btn.disabled {
+        opacity: 0.5;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <div>
+          <h1>오늘의 일상 연구팀 · AI 팀장</h1>
+          <p>일상의 가치, 가치있는 일상 - 일상 과업을 발굴합니다.</p>
+        </div>
+        <div class="streak">
+          <div class="num" id="done-count">0</div>
+          <div class="label">검증한 과업</div>
+        </div>
+      </header>
+
+      <div class="messages" id="messages"></div>
+
+      <div class="char-counter" id="char-counter" aria-live="polite">0 / 500</div>
+
+      <div class="preview" id="preview" hidden>
+        <img id="preview-img" alt="첨부 사진 미리보기" />
+        <span class="name">사진 1장 첨부됨</span>
+        <button type="button" id="preview-remove" aria-label="사진 제거">✕</button>
+      </div>
+
+      <form id="chat-form">
+        <label class="photo-btn" id="photo-btn" title="사진 찍기 / 올리기">
+          📷
+          <input
+            type="file"
+            id="photo-input"
+            accept="image/*"
+            capture="environment"
+            hidden
+          />
+        </label>
+        <textarea
+          id="input"
+          rows="1"
+          maxlength="500"
+          placeholder="사진에 설명을 덧붙일 수 있어요 (선택)"
+          autocomplete="off"
+        ></textarea>
+        <button type="submit" class="send" id="send">보내기</button>
+      </form>
+    </div>
+
+    <script>
+      const messagesEl = document.getElementById("messages");
+      const form = document.getElementById("chat-form");
+      const input = document.getElementById("input");
+      const sendBtn = document.getElementById("send");
+      const doneCountEl = document.getElementById("done-count");
+      const photoInput = document.getElementById("photo-input");
+      const preview = document.getElementById("preview");
+      const previewImg = document.getElementById("preview-img");
+      const previewRemove = document.getElementById("preview-remove");
+      const charCounter = document.getElementById("char-counter");
+      const photoBtn = document.getElementById("photo-btn");
+
+      const MAX_CHARS = 500;
+      const history = []; // 텍스트 기록(이미지는 직전 1장만 서버로 전송)
+      let stagedImage = null; // { data, mediaType, dataUrl }
+      let lastSentImage = null; // 마지막으로 서버에 보낸 사진 { data, mediaType } — '여기서 더' 재사용
+      let sending = false; // 응답 대기 중 중복 요청 방지
+      let doneCount = 0; // 이번 세션에 완료한 일 수(저장하지 않음)
+      let currentTask = null; // 지금 검증 중인 과업 {minutes, task} — 완료 서머리에 사용
+      let lastRating = null; // 직전 난이도 평가('할 만했어' 등) — 완료 서머리에 사용
+
+      // 첫 인사 — 문장 단위로 나눠 톡톡 오는 채팅처럼 보여준다.
+      const GREETING = [
+        "안녕, 출근했어?",
+        "오늘도 일상 과업을 같이 발굴해보자.",
+        "주변에 다른 친구가 작은 행동으로 일상 회복을 경험할 만한 것이 있는지 찾아봐 줄래?",
+        "방정리, 청소, 설거지, 뭐든 좋아.",
+        "후보가 될 만한 곳이 보이면 📷로 찍어줘. (설명은 덧붙여도 좋고, 안 해도 돼.)",
+      ];
+
+      function scrollDown() {
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      function addBubble(role, text, extraClass = "") {
+        const div = document.createElement("div");
+        div.className = "msg " + role + (extraClass ? " " + extraClass : "");
+        div.textContent = text;
+        messagesEl.appendChild(div);
+        scrollDown();
+        return div;
+      }
+
+      function addUserBubble(text, imageUrl) {
+        const div = document.createElement("div");
+        div.className = "msg user";
+        if (imageUrl) {
+          const img = document.createElement("img");
+          img.src = imageUrl;
+          img.className = "msg-img";
+          div.appendChild(img);
+        }
+        if (text) {
+          const t = document.createElement("div");
+          t.textContent = text;
+          if (imageUrl) t.style.marginTop = "8px";
+          div.appendChild(t);
+        }
+        messagesEl.appendChild(div);
+        scrollDown();
+      }
+
+      function showTyping() {
+        const div = document.createElement("div");
+        div.className = "typing";
+        div.innerHTML = "<span></span><span></span><span></span>";
+        messagesEl.appendChild(div);
+        scrollDown();
+        return div;
+      }
+
+      function lockOldTaskButtons() {
+        messagesEl
+          .querySelectorAll(".task-card button:not(:disabled)")
+          .forEach((b) => (b.disabled = true));
+      }
+
+      // 입력 폼 표시/숨김 — 커밋된 과업 중엔 숨겨 버튼으로만 진행하게 한다.
+      function setComposer(visible) {
+        form.style.display = visible ? "flex" : "none";
+        charCounter.style.display = visible ? "" : "none";
+        if (!visible) clearStagedImage();
+      }
+
+      // 안내용(점선) 도움말 말풍선 — AI 메시지와 구분되고 history에는 넣지 않는다.
+      function addHelp(text) {
+        const help = document.createElement("div");
+        help.className = "help";
+        help.textContent = text;
+        messagesEl.appendChild(help);
+        scrollDown();
+      }
+
+      // {minutes, task} → "N분" 배지 + 과업 텍스트를 text 요소에 채운다.
+      function fillTaskText(el, item) {
+        el.textContent = "";
+        if (item.minutes) {
+          const badge = document.createElement("span");
+          badge.textContent = item.minutes + "분";
+          badge.style.cssText =
+            "flex:none;white-space:nowrap;display:inline-block;background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:12px;border-radius:8px;padding:2px 8px;margin-right:8px;";
+          el.append(badge);
+        }
+        el.append(document.createTextNode(item.task));
+      }
+
+      function addTaskCard(item) {
+        currentTask = item; // 검증 대상 과업 기억 → 완료 서머리에 표시
+        const card = document.createElement("div");
+        card.className = "task-card";
+        const label = document.createElement("div");
+        label.className = "task-label";
+        label.textContent = "검증할 과업";
+        const text = document.createElement("div");
+        text.className = "task-text";
+        fillTaskText(text, item);
+        const actions = document.createElement("div");
+        actions.className = "task-actions";
+        const doneBtn = document.createElement("button");
+        doneBtn.className = "done";
+        doneBtn.textContent = "✅ 했어요";
+        doneBtn.addEventListener("click", () => {
+          // 바로 보내지 않고, 폼을 열어 '했어요'를 채운 뒤 결과 사진 첨부를 기다린다.
+          lockOldTaskButtons();
+          setComposer(true);
+          input.value = "했어요";
+          input.style.height = "auto";
+          input.style.height = input.scrollHeight + "px";
+          updateCharCount();
+          addHelp("테스트 결과를 📷로 찍어서 같이 보내줄래? (사진 없이 보내도 괜찮아)");
+          input.focus();
+        });
+        const retryBtn = document.createElement("button");
+        retryBtn.textContent = "🔁 다른 거";
+        retryBtn.addEventListener("click", () =>
+          send("그건 지금 좀 어려워. 다른 걸로 줄래?")
+        );
+        actions.append(doneBtn, retryBtn);
+        card.append(label, text, actions);
+        messagesEl.appendChild(card);
+        scrollDown();
+      }
+
+      // 과업 후보 여러 개 — 하나를 고르면 그 과업으로 커밋(「…」 이걸로 할게 전송)
+      function addChoiceCard(tasks) {
+        const card = document.createElement("div");
+        card.className = "task-card";
+        const label = document.createElement("div");
+        label.className = "task-label";
+        label.textContent = "후보 과업 — 하나 골라 검증해보자";
+        card.append(label);
+        tasks.forEach((item) => {
+          // 행 전체가 버튼 — 누르면 그 과업으로 커밋
+          const row = document.createElement("button");
+          row.className = "choice-row";
+          fillTaskText(row, item);
+          row.addEventListener("click", () =>
+            send(`「${item.task}」 이걸로 할게`)
+          );
+          card.append(row);
+        });
+        messagesEl.appendChild(card);
+        scrollDown();
+      }
+
+      // 검증 완료 서머리 — 무엇을·얼마나·난이도·누적을 한 카드로 정리해 성취를 가시화한다.
+      function addSummaryCard() {
+        const card = document.createElement("div");
+        card.className = "task-card";
+        const label = document.createElement("div");
+        label.className = "task-label";
+        label.textContent = "✅ 미션 완료";
+
+        const rows = document.createElement("div");
+        rows.style.cssText = "display:flex;flex-direction:column;gap:6px;margin-top:4px;";
+
+        const addRow = (k, vNode) => {
+          const row = document.createElement("div");
+          row.style.cssText = "display:flex;gap:8px;font-size:14px;line-height:1.4;";
+          const key = document.createElement("span");
+          key.textContent = k;
+          key.style.cssText = "flex:none;color:var(--muted);min-width:64px;";
+          const val = document.createElement("span");
+          if (typeof vNode === "string") val.textContent = vNode;
+          else val.append(vNode);
+          row.append(key, val);
+          rows.append(row);
+        };
+
+        if (currentTask) {
+          const t = document.createElement("span");
+          fillTaskText(t, currentTask);
+          addRow("검증 과업", t);
+        }
+        if (lastRating) addRow("난이도", lastRating);
+        addRow("누적 검증", `${doneCount}개`);
+
+        card.append(label, rows);
+        messagesEl.appendChild(card);
+        scrollDown();
+      }
+
+      // 완료 보고 후 다음 선택 — 버튼 문구를 그대로 메시지로 보낸다.
+      function addNextStepCard() {
+        const card = document.createElement("div");
+        card.className = "task-card";
+        const label = document.createElement("div");
+        label.className = "task-label";
+        label.textContent = "또 발굴해볼까?";
+        const actions = document.createElement("div");
+        actions.className = "task-actions";
+        actions.style.flexDirection = "column";
+        // '여기서 더 해볼래'는 방금 보낸 결과 사진(현재 상태)을 함께 보내 그걸 기준으로 제안받는다.
+        [
+          { t: "오늘은 여기까지 할게", useImage: false },
+          { t: "여기서 더 해볼래", useImage: true },
+          { t: "다른 것도 해볼래", useImage: false },
+        ].forEach(({ t, useImage }) => {
+          const b = document.createElement("button");
+          b.textContent = t;
+          b.addEventListener("click", () =>
+            send(t, useImage ? lastSentImage : null)
+          );
+          actions.append(b);
+        });
+        card.append(label, actions);
+        messagesEl.appendChild(card);
+        scrollDown();
+      }
+
+      // 수행 결과보고 후 — 후보 과업 검증(만족도) 평가. 버튼 문구를 그대로 보낸다.
+      function addReviewCard() {
+        const card = document.createElement("div");
+        card.className = "task-card";
+        const label = document.createElement("div");
+        label.className = "task-label";
+        label.textContent = "해보니 어땠어?";
+        const actions = document.createElement("div");
+        actions.className = "task-actions";
+        actions.style.flexDirection = "column";
+        ["할 만했어", "좀 빡셌어", "너무 쉬웠어"].forEach((t) => {
+          const b = document.createElement("button");
+          b.textContent = t;
+          // 접두어로 '난이도 평가 제출'을 명시 → 서버가 확정적으로 검증 완료(celebrate)로 처리
+          b.addEventListener("click", () => {
+            lastRating = t; // 완료 서머리에 표시할 난이도 평가 기억
+            send(`검증 결과 — ${t}`);
+          });
+          actions.append(b);
+        });
+        card.append(label, actions);
+        messagesEl.appendChild(card);
+        scrollDown();
+      }
+
+      function renderResponse(result) {
+        const isSafety = result.intent === "safety";
+        addBubble("bot", result.reply, isSafety ? "safety" : "");
+        // tasks: {minutes, task} 객체 배열. 옛 문자열/단일 task 응답도 호환.
+        let tasks = Array.isArray(result.tasks) ? result.tasks : [];
+        tasks = tasks
+          .map((x) => (typeof x === "string" ? { minutes: 0, task: x } : x))
+          .filter((x) => x && x.task);
+        if (!tasks.length && typeof result.task === "string") {
+          tasks = [{ minutes: 0, task: result.task }];
+        }
+        if (isSafety) {
+          addHelp(
+            "혼자 견디지 않아도 돼. 자살예방상담전화 ☎ 109 (24시간) · 정신건강상담 ☎ 1577-0199"
+          );
+          setComposer(true);
+        } else if (tasks.length > 1) {
+          addChoiceCard(tasks);
+          setComposer(true); // 후보 단계 — 맘에 드는 게 없으면 다른 입력도 가능
+        } else if (tasks.length === 1) {
+          addTaskCard(tasks[0]);
+          setComposer(false); // 검증할 과업 주어짐 — 버튼으로만 진행, 폼 숨김
+        } else if (result.intent === "review") {
+          addReviewCard();
+          setComposer(false); // 검증(만족도)은 버튼 탭으로
+        } else {
+          setComposer(true);
+        }
+        if (result.intent === "celebrate") {
+          doneCount += 1;
+          doneCountEl.textContent = String(doneCount);
+          addSummaryCard();
+          addNextStepCard();
+        }
+      }
+
+      // 사진 자동 축소(긴 변 1024px, JPEG) → 토큰·전송량 절감
+      function downscaleImage(file, maxDim = 1024, quality = 0.8) {
+        return new Promise((resolve, reject) => {
+          const url = URL.createObjectURL(file);
+          const img = new Image();
+          img.onload = () => {
+            let { width, height } = img;
+            if (width >= height && width > maxDim) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else if (height > maxDim) {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+            URL.revokeObjectURL(url);
+            const dataUrl = canvas.toDataURL("image/jpeg", quality);
+            resolve({
+              dataUrl,
+              data: dataUrl.split(",")[1],
+              mediaType: "image/jpeg",
+            });
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error("이미지 로드 실패"));
+          };
+          img.src = url;
+        });
+      }
+
+      function clearStagedImage() {
+        stagedImage = null;
+        previewImg.src = "";
+        preview.hidden = true;
+      }
+
+      // 첫 인사 (과업 탐색 요청) — 문장마다 약간의 간격을 두고 순차로 띄운다.
+      GREETING.forEach((line, i) => {
+        setTimeout(() => addBubble("bot", line), i * 1200);
+      });
+
+      function updateCharCount() {
+        const n = input.value.length;
+        charCounter.textContent = `${n} / ${MAX_CHARS}`;
+        charCounter.classList.toggle("near", n >= MAX_CHARS * 0.9);
+      }
+
+      input.addEventListener("input", () => {
+        input.style.height = "auto";
+        input.style.height = input.scrollHeight + "px";
+        updateCharCount();
+      });
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          form.requestSubmit();
+        }
+      });
+
+      photoInput.addEventListener("change", async () => {
+        const file = photoInput.files[0];
+        if (!file) return;
+        try {
+          const img = await downscaleImage(file);
+          stagedImage = img;
+          previewImg.src = img.dataUrl;
+          preview.hidden = false;
+        } catch {
+          addBubble("error", "사진을 불러오지 못했어요.");
+        }
+        photoInput.value = ""; // 같은 파일 재선택 허용
+      });
+
+      previewRemove.addEventListener("click", clearStagedImage);
+
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const text = input.value.trim();
+        if (!text && !stagedImage) return;
+        const image = stagedImage
+          ? { data: stagedImage.data, mediaType: stagedImage.mediaType }
+          : null;
+        const imageUrl = stagedImage ? stagedImage.dataUrl : null;
+        send(text, image, imageUrl);
+      });
+
+      async function send(text, image = null, imageUrl = null) {
+        if (sending) return; // 응답 오기 전 중복 요청 차단
+
+        sending = true;
+        if (image) lastSentImage = image; // 현재 상태 사진을 기억해 '여기서 더'에 재사용
+        lockOldTaskButtons();
+        addUserBubble(text, imageUrl);
+        history.push({
+          role: "user",
+          content: text || (image ? "(사진을 보냈어요)" : ""),
+        });
+
+        input.value = "";
+        input.style.height = "auto";
+        updateCharCount();
+        clearStagedImage();
+        input.disabled = true;
+        sendBtn.disabled = true;
+        photoBtn.classList.add("disabled");
+        sendBtn.textContent = "전송 중…";
+
+        const typing = showTyping();
+
+        try {
+          const res = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messages: history, image }),
+          });
+          typing.remove();
+
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || "요청에 실패했습니다.");
+          }
+
+          const result = await res.json();
+          renderResponse(result);
+          history.push({ role: "assistant", content: JSON.stringify(result) });
+        } catch (err) {
+          typing.remove();
+          addBubble("error", err.message);
+          history.pop();
+        } finally {
+          sending = false;
+          input.disabled = false;
+          sendBtn.disabled = false;
+          photoBtn.classList.remove("disabled");
+          sendBtn.textContent = "보내기";
+          input.focus();
+        }
+      }
+    </script>
+  </body>
+</html>
