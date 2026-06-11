@@ -224,6 +224,84 @@
         cursor: not-allowed;
       }
 
+      /* 검증 완료 서머리 — 보상감을 위한 전용 색·강조·등장 애니메이션 */
+      .summary-card {
+        align-self: flex-start;
+        width: fit-content;
+        max-width: 100%;
+        padding: 16px 18px 14px;
+        border-radius: 18px;
+        border-bottom-left-radius: 4px;
+        background: linear-gradient(135deg, var(--accent-soft) 0%, var(--reward-soft) 100%);
+        border: 1.5px solid var(--accent);
+        box-shadow: 0 8px 24px rgba(124, 191, 142, 0.28);
+        animation: pop-in 0.45s cubic-bezier(0.18, 0.9, 0.32, 1.4) both;
+      }
+      .summary-card .sum-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      .summary-card .sum-sprout {
+        font-size: 30px;
+        line-height: 1;
+        animation: sprout-bounce 0.6s ease 0.18s both;
+      }
+      .summary-card .sum-title {
+        font-size: 17px;
+        font-weight: 800;
+        color: var(--action-dark);
+      }
+      .summary-card .sum-rows {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .summary-card .sum-credit {
+        margin-top: 12px;
+        padding: 10px 14px;
+        background: #fff;
+        border: 1px solid var(--task-border);
+        border-radius: 12px;
+      }
+      .summary-card .sum-credit .num {
+        font-size: 22px;
+        font-weight: 800;
+        color: var(--reward-ink);
+        margin: 0 2px;
+        vertical-align: -1px;
+      }
+      .summary-card .sum-credit .cap {
+        display: block;
+        margin-top: 3px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      @keyframes pop-in {
+        from {
+          opacity: 0;
+          transform: scale(0.9) translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+      }
+      @keyframes sprout-bounce {
+        0% {
+          transform: scale(0.4) translateY(6px);
+          opacity: 0;
+        }
+        60% {
+          transform: scale(1.25) translateY(-4px);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1) translateY(0);
+        }
+      }
+
       .help {
         align-self: flex-start;
         max-width: 80%;
@@ -447,7 +525,12 @@
       let lastSentImage = null; // 마지막으로 서버에 보낸 사진 { data, mediaType } — '여기서 더' 재사용
       let sending = false; // 응답 대기 중 중복 요청 방지
       let appToken = ""; // /api/token 이 발급한 HMAC 서명 토큰(봇 마찰)
-      let doneCount = 0; // 이번 세션에 완료한 일 수(저장하지 않음)
+      // 누적 검증 수 — localStorage에 보관해 새로고침해도 '쌓이는 기여'가 유지된다(클라이언트 전용).
+      let doneCount = 0;
+      try {
+        doneCount = Number(localStorage.getItem("doneCount") || 0) || 0;
+      } catch {} // 프라이빗 모드 등 storage 비활성 시 0으로
+      doneCountEl.textContent = String(doneCount);
       let currentTask = null; // 지금 검증 중인 과업 {minutes, task} — 완료 서머리에 사용
       let lastRating = null; // 직전 난이도 평가('할 만했어' 등) — 완료 서머리에 사용
 
@@ -594,17 +677,33 @@
         scrollDown();
       }
 
-      // 검증 완료 서머리 — 무엇을·얼마나·난이도·누적을 한 카드로 정리해 성취를 가시화한다.
+      // 누적 검증에 따라 자라는 새싹(죽지 않고 올라가기만 — 무압박 보상).
+      function sproutFor(n) {
+        if (n >= 8) return "🌳";
+        if (n >= 5) return "🪴";
+        if (n >= 3) return "🌿";
+        return "🌱";
+      }
+
+      // 검증 완료 서머리 — 담백한 역량 인정 + 팀 기여 + 자라는 새싹으로 완료를 보상.
       function addSummaryCard() {
         const card = document.createElement("div");
-        card.className = "task-card";
-        const label = document.createElement("div");
-        label.className = "task-label";
-        label.textContent = "✅ 미션 완료";
+        card.className = "summary-card";
 
+        // 헤드라인: 톡 튀어오르는 새싹 + 담백한 역량 인정
+        const head = document.createElement("div");
+        head.className = "sum-head";
+        const sprout = document.createElement("span");
+        sprout.className = "sum-sprout";
+        sprout.textContent = sproutFor(doneCount);
+        const title = document.createElement("span");
+        title.className = "sum-title";
+        title.textContent = "잘 해냈어!";
+        head.append(sprout, title);
+
+        // 검증 과업·난이도
         const rows = document.createElement("div");
-        rows.style.cssText = "display:flex;flex-direction:column;gap:6px;margin-top:4px;";
-
+        rows.className = "sum-rows";
         const addRow = (k, vNode) => {
           const row = document.createElement("div");
           row.style.cssText = "display:flex;gap:8px;font-size:14px;line-height:1.4;";
@@ -617,16 +716,32 @@
           row.append(key, val);
           rows.append(row);
         };
-
         if (currentTask) {
           const t = document.createElement("span");
           fillTaskText(t, currentTask);
           addRow("검증 과업", t);
         }
         if (lastRating) addRow("난이도", lastRating);
-        addRow("누적 검증", `${doneCount}개`);
 
-        card.append(label, rows);
+        // 기여 적립 — 숫자를 크게 강조(개인 점수 아닌 집단 기여)
+        const credit = document.createElement("div");
+        credit.className = "sum-credit";
+        const line = document.createElement("div");
+        line.style.cssText = "font-size:14px;font-weight:700;color:var(--ink);";
+        const num = document.createElement("span");
+        num.className = "num";
+        num.textContent = String(doneCount);
+        line.append(
+          document.createTextNode("추천 후보 "),
+          num,
+          document.createTextNode("개 적립")
+        );
+        const cap = document.createElement("span");
+        cap.className = "cap";
+        cap.textContent = "다른 친구들에게 줄 목록이 쌓이고 있어 🌿";
+        credit.append(line, cap);
+
+        card.append(head, rows, credit);
         messagesEl.appendChild(card);
         scrollDown();
       }
@@ -714,6 +829,9 @@
         }
         if (result.intent === "celebrate") {
           doneCount += 1;
+          try {
+            localStorage.setItem("doneCount", String(doneCount)); // 누적 기여 영속화
+          } catch {}
           doneCountEl.textContent = String(doneCount);
           addSummaryCard();
           addNextStepCard();
