@@ -459,9 +459,69 @@
         opacity: 0.5;
         pointer-events: none;
       }
+      /* 스플래시 — 진입 순간 브랜드 '일상 연구' 노출(헤더의 세계관은 유지) */
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        text-align: center;
+        background: linear-gradient(160deg, #e3f2ea 0%, #f6faf7 55%, #eef5ff 100%);
+        transition: opacity 0.5s ease;
+      }
+      #splash.hide {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #splash .logo {
+        font-size: 46px;
+        line-height: 1;
+        animation: sprout-bounce 0.7s ease 0.1s both;
+      }
+      #splash .brand {
+        font-size: 30px;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        color: var(--action-dark);
+        animation: pop-in 0.5s ease 0.2s both;
+      }
+      #splash .tag {
+        font-size: 14px;
+        color: var(--muted);
+        animation: pop-in 0.5s ease 0.35s both;
+      }
     </style>
   </head>
   <body>
+    <div id="splash">
+      <div class="logo">🌱</div>
+      <div class="brand">일상 연구</div>
+      <div class="tag">오늘도, 작은 한 걸음</div>
+    </div>
+    <script>
+      // 스플래시: 1.9초 후 부드럽게 사라짐(탭하면 즉시 스킵)
+      (function () {
+        var s = document.getElementById("splash");
+        if (!s) return;
+        var hide = function () {
+          s.classList.add("hide");
+          setTimeout(function () {
+            s.remove();
+            window.dispatchEvent(new Event("splash-done")); // 닫힌 뒤 그리팅 시작 신호
+          }, 600);
+        };
+        var t = setTimeout(hide, 1900);
+        s.addEventListener("click", function () {
+          clearTimeout(t);
+          hide();
+        });
+      })();
+    </script>
+
     <div class="app">
       <header>
         <div>
@@ -907,9 +967,17 @@
       fetchToken();
 
       // 첫 인사 (과업 탐색 요청) — 문장마다 약간의 간격을 두고 순차로 띄운다.
-      GREETING.forEach((line, i) => {
-        setTimeout(() => addBubble("bot", line), i * 1200);
-      });
+      // 스플래시가 닫힌 뒤(splash-done)에 시작한다. 스플래시가 없으면 즉시.
+      function startGreeting() {
+        GREETING.forEach((line, i) => {
+          setTimeout(() => addBubble("bot", line), i * 1200);
+        });
+      }
+      if (document.getElementById("splash")) {
+        window.addEventListener("splash-done", startGreeting, { once: true });
+      } else {
+        startGreeting();
+      }
 
       function updateCharCount() {
         const n = input.value.length;
