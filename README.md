@@ -18,8 +18,6 @@
 
 ![일상 연구 실행 화면](screenshot.png)
 
-> `screenshot.png`를 리포지토리에 추가하세요. (배포본 https://aipm-camp7.vercel.app 에서 캡처)
-
 ## [05] 실행 방법
 
 1. **키 발급** — [Anthropic Console](https://console.anthropic.com/settings/keys)에서 API 키 발급
