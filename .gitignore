@@ -2,3 +2,4 @@
 node_modules
 .vercel
 .data
+.DS_Store
